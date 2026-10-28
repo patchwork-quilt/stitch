@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="stitch — a tiny substrate primitive for accountable agent state. 11 append-only stitches on hash-chained JSONL ledgers; shared state is minted only where sovereign ledgers agree.">
+<title>stitch — accountable agent state</title>
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9MzIgaGVpZ2h0PTMyIHJ4PSI3IiBmaWxsPSIjMGIwZjE3Ii8+PHBhdGggZD0iTTcgMTFoMThNNyAxNmgxOE03IDIxaDE4IiBzdHJva2U9IiMzNGQzOTkiIHN0cm9rZS13aWR0aD0iMi42IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1kYXNoYXJyYXk9IjQuNSA0LjUiLz48L3N2Zz4">
+<style>
+  :root{
+    --bg:#0a0d13;
+    --bg-soft:#0d1119;
+    --surface:#10151f;
+    --surface-2:#141a27;
+    --line:#1f2937;
+    --line-soft:#1a2333;
+    --ink:#e9edf5;
+    --ink-2:#a3aec2;
+    --ink-3:#7c8aa5;
+    --mint:#34d399;
+    --mint-2:#6ee7b7;
+    --violet:#a78bfa;
+    --cyan:#67e8f9;
+    --amber:#fbbf24;
+    --red:#f87171;
+    --red-2:#fca5a5;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    font-family:var(--sans);
+    color:var(--ink);
+    background:
+      radial-gradient(1100px 500px at 18% -8%, rgba(52,211,153,.055), transparent 60%),
+      radial-gradient(900px 480px at 88% 12%, rgba(167,139,250,.05), transparent 60%),
+      var(--bg);
+    background-attachment:fixed;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:rgba(52,211,153,.28)}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 28px}
+  section{padding:92px 0;scroll-margin-top:76px}
+  .sep{border:0;border-top:1px dashed var(--line-soft);margin:0}
+
+  .overline{
+    font-family:var(--mono);
+    font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--mint);margin:0 0 14px;
+  }
+  h2{font-size:clamp(28px,4vw,40px);line-height:1.12;margin:0 0 12px;letter-spacing:-.01em}
+  .lede{color:var(--ink-2);font-size:clamp(15px,1.6vw,17.5px);max-width:70ch;margin:0 0 8px}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    position:sticky;top:0;z-index:50;
+    background:rgba(10,13,19,.82);
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line-soft);
+  }
+  .topbar .wrap{display:flex;align-items:center;gap:18px;height:58px}
+  .brand{font-family:var(--mono);font-weight:700;font-size:17px;color:var(--ink);text-decoration:none;letter-spacing:.02em}
+  .brand b{color:var(--mint)}
+  .ver-chip{
+    font-family:var(--mono);font-size:11px;color:var(--mint-2);
+    border:1px solid rgba(52,211,153,.35);background:rgba(52,211,153,.07);
+    padding:2px 9px;border-radius:999px;white-space:nowrap;
+  }
+  .topbar nav{margin-left:auto;display:flex;gap:20px;flex-wrap:wrap}
+  .topbar nav a{color:var(--ink-2);text-decoration:none;font-size:13.5px}
+  .topbar nav a:hover{color:var(--mint-2)}
+
+  /* ---------- hero ---------- */
+  #hero{padding:96px 0 84px}
+  .hero-grid{display:flex;gap:56px;align-items:center;flex-wrap:wrap}
+  .hero-copy{flex:1.25;min-width:320px}
+  .hero-copy .overline{color:var(--ink-3)}
+  h1{font-size:clamp(38px,5.4vw,62px);line-height:1.05;margin:0 0 18px;letter-spacing:-.02em}
+  h1 .accent{color:var(--mint)}
+  .hero-lede{font-size:clamp(16px,1.8vw,19px);color:var(--ink-2);max-width:56ch;margin:0 0 26px}
+  .hero-lede code, .code{font-family:var(--mono);font-size:.92em;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+  .chips{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 26px}
+  .chip{
+    font-family:var(--mono);font-size:12px;color:var(--ink-2);
+    border:1px solid var(--line);background:var(--surface);
+    padding:5px 12px;border-radius:999px;white-space:nowrap;
+  }
+  .chip.formula{color:var(--mint-2);border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.06)}
+  .meta-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:var(--ink-3);font-family:var(--mono);font-size:12px}
+  .hero-art{flex:1;min-width:300px;max-width:520px}
+  .hero-art svg{width:100%;height:auto;display:block}
+
+  /* ---------- generic card ---------- */
+  .card{
+    background:linear-gradient(180deg,var(--surface-2),var(--surface));
+    border:1px solid var(--line);border-radius:16px;
+  }
+
+  /* ---------- fact strip ---------- */
+  .fact-strip{display:flex;flex-wrap:wrap;gap:10px;margin:26px 0 0}
+
+  /* ---------- STITCH WAR ---------- */
+  #war .scroller{overflow-x:auto;padding:4px 2px 8px}
+  #route{min-width:780px;width:100%;height:auto;display:block}
+  .legend{color:var(--ink-3);font-family:var(--mono);font-size:11.5px;margin:10px 2px 0;max-width:90ch}
+
+  .node .body{fill:#10151f;stroke:#232e44;stroke-width:1.5;transition:stroke .25s}
+  .node .name{fill:var(--ink);font:600 15px var(--sans)}
+  .node .sub{fill:var(--ink-3);font:400 10.5px var(--mono)}
+  .node .dot{fill:var(--pc,#64748b)}
+  #node-dealer{--pc:#64748b}
+  #node-thor{--pc:var(--violet)}
+  #node-orin{--pc:var(--cyan)}
+  #node-proart{--pc:var(--amber)}
+  .node.visited .body{stroke:#33415e}
+  .node.active .body{stroke:var(--mint);stroke-width:2}
+  .node.active{filter:drop-shadow(0 0 10px rgba(52,211,153,.4))}
+
+  .leg{stroke:#31405c;stroke-width:2;fill:none;transition:stroke .25s,opacity .25s}
+  .leg.lit{stroke:var(--mint);opacity:.55}
+  .leg.current{opacity:1;stroke-width:2.5;stroke-dasharray:7 7;animation:flow .8s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-14}}
+  .leg.lit:not(.current){marker-end:url(#arrow-mint) !important}
+
+  .controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:26px 0 20px}
+  .btn{
+    font:600 13.5px var(--sans);color:var(--ink);
+    background:var(--surface-2);border:1px solid var(--line);border-radius:10px;
+    padding:9px 20px;cursor:pointer;transition:border-color .2s,background .2s,transform .1s;
+  }
+  .btn:hover{border-color:#33415e;background:#182031}
+  .btn:active{transform:translateY(1px)}
+  .btn:focus-visible,.btn:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
+  .btn.primary{background:var(--mint);border-color:var(--mint);color:#04120c}
+  .btn.primary:hover{background:var(--mint-2);border-color:var(--mint-2)}
+  .btn:disabled{opacity:.45;cursor:default;transform:none}
+  .dots{display:flex;gap:7px;align-items:center}
+  .dots span{width:8px;height:8px;border-radius:50%;border:1.5px solid #33415e;transition:background .2s,border-color .2s}
+  .dots span.on{background:var(--mint);border-color:var(--mint)}
+  .counter{font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-left:auto}
+
+  .replay-grid{display:grid;grid-template-columns:1fr 380px;gap:26px;align-items:start}
+  .table{padding:22px;display:flex;flex-direction:column;gap:14px}
+  .trick-row{display:flex;gap:18px;align-items:center}
+  .trick-label{
+    font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.14em;text-transform:uppercase;
+    writing-mode:vertical-rl;transform:rotate(180deg);border-left:1px dashed var(--line);padding-left:10px;
+    align-self:stretch;display:flex;align-items:center;min-height:148px;
+  }
+  .slots{display:flex;gap:14px;flex-wrap:wrap}
+  .slot{
+    width:106px;height:150px;border:1.5px dashed #26314a;border-radius:12px;
+    display:flex;align-items:center;justify-content:center;position:relative;
+  }
+  .slot::after{
+    content:attr(data-wait);font-family:var(--mono);font-size:9.5px;color:#4a5975;
+    letter-spacing:.08em;position:absolute;
+  }
+  .slot.filled{border-color:transparent}
+  .slot.filled::after{display:none}
+
+  .playcard{
+    width:104px;height:148px;border-radius:12px;position:absolute;
+    background:linear-gradient(180deg,#fbfcfe,#edf1f8);
+    border:1px solid #dfe6f0;border-top:4px solid var(--pc);
+    color:#0c1220;box-shadow:0 8px 20px rgba(0,0,0,.35);
+    display:flex;flex-direction:column;
+    opacity:0;transform:translateY(-12px) rotate(-3deg);
+    transition:opacity .35s,transform .35s cubic-bezier(.2,.8,.3,1.25),filter .3s,box-shadow .3s;
+  }
+  .playcard.shown{opacity:1;transform:none}
+  .playcard.dimmed{filter:saturate(.35);opacity:.42}
+  .playcard.winner{box-shadow:0 0 0 2px var(--mint),0 0 26px rgba(52,211,153,.4)}
+  .playcard .rank{font-weight:800;font-size:34px;line-height:1;padding:12px 0 0 14px;letter-spacing:-.02em}
+  .playcard .rank small{font-size:13px;font-weight:600;color:#5b6779;margin-left:4px}
+  .playcard .mid{margin-top:auto;padding:0 10px 12px;text-align:right}
+  .playcard .who{font-family:var(--mono);font-size:13px;font-weight:600}
+  .playcard .machine{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#5b6779}
+  .p-thor{--pc:var(--violet)} .p-orin{--pc:var(--cyan)} .p-proart{--pc:var(--amber)}
+
+  .banner{
+    display:none;align-items:center;gap:9px;
+    border:1px solid rgba(52,211,153,.4);background:rgba(52,211,153,.07);
+    color:var(--mint-2);border-radius:11px;padding:9px 15px;
+    font:600 12.5px var(--mono);align-self:flex-start;margin-left:34px;
+  }
+  .banner.show{display:inline-flex;animation:pop .4s cubic-bezier(.2,.8,.3,1.3)}
+  .banner svg{flex:none}
+  @keyframes pop{from{opacity:0;transform:translateY(6px) scale(.96)}}
+
+  .panel{display:flex;flex-direction:column;gap:14px}
+  .caption{
+    padding:16px 18px;font-family:var(--mono);font-size:12.5px;
+    min-height:108px;
+  }
+  .caption .cap1{color:var(--ink);font-weight:600;margin:0 0 8px;line-height:1.5}
+  .caption .cap2{color:var(--ink-3);margin:0;line-height:1.6;word-break:break-word}
+  .caption .cap2 b{color:var(--mint-2);font-weight:600}
+
+  .final{display:none;padding:20px;flex-direction:column;gap:4px}
+  .final.show{display:flex;animation:pop .45s cubic-bezier(.2,.8,.3,1.3)}
+  .final .fs-label{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3)}
+  .final .fs-row{display:flex;gap:16px;font-family:var(--mono);font-weight:700;font-size:21px;margin:6px 0 2px}
+  .final .fs-note{color:var(--ink-2);font-size:13px;margin:0}
+  .final hr{border:0;border-top:1px dashed var(--line);margin:14px 0;width:100%}
+  .final .final-line{
+    margin:0;font-size:16.5px;line-height:1.45;color:var(--mint-2);font-weight:600;font-style:italic;
+  }
+  .final .final-sub{margin:8px 0 0;color:var(--ink-3);font-family:var(--mono);font-size:11px}
+
+  .hands{display:flex;gap:26px;flex-wrap:wrap;margin-top:26px;padding:18px 22px}
+  .hand{display:flex;align-items:center;gap:12px}
+  .hand-label{font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
+  .hand-label b{color:var(--ink-2);font-weight:600}
+  .minicard{
+    width:46px;height:62px;border-radius:7px;
+    background:linear-gradient(180deg,#fbfcfe,#edf1f8);border:1px solid #dfe6f0;border-top:3px solid var(--pc);
+    color:#0c1220;display:flex;flex-direction:column;justify-content:space-between;
+    font-weight:800;font-size:16px;padding:5px 0 4px 7px;transition:opacity .3s,filter .3s;
+  }
+  .minicard small{font-family:var(--mono);font-weight:600;font-size:8px;color:#5b6779;letter-spacing:.05em;padding-right:5px;text-align:right}
+  .minicard.played{opacity:.25;filter:saturate(.2)}
+
+  .rehearsal{
+    margin-top:26px;display:flex;gap:12px;align-items:flex-start;
+    border:1px solid rgba(251,191,36,.28);background:rgba(251,191,36,.05);
+    border-radius:12px;padding:14px 18px;color:var(--ink-2);font-size:13.5px;max-width:920px;
+  }
+  .rehearsal .tag{
+    flex:none;font-family:var(--mono);font-size:11px;color:var(--amber);
+    border:1px solid rgba(251,191,36,.4);border-radius:999px;padding:2px 10px;margin-top:1px;
+  }
+
+  /* ---------- mint flow ---------- */
+  #mint .scroller{overflow-x:auto;padding:4px 2px}
+  #flow{min-width:920px;width:100%;height:auto;display:block}
+  .flow-caption{
+    margin:30px auto 0;max-width:640px;text-align:center;
+    font-size:clamp(16px,2vw,19px);font-style:italic;font-weight:600;color:var(--mint-2);
+  }
+  .beat-badge circle{fill:#141b2a;stroke:#33415e}
+  .beat-badge text{fill:var(--mint-2);font:700 12px var(--mono)}
+  .beat-label{fill:var(--ink);font:600 13px var(--sans)}
+  .beat-sub{fill:var(--ink-3);font:400 10.5px var(--mono)}
+  .flowbox{fill:#10151f;stroke:#28344e;stroke-width:1.5}
+  .flowbox-title{fill:var(--ink);font:600 14px var(--sans)}
+  .flowbox-title.mono{font:600 15px var(--mono)}
+  .flowbox-sub{fill:var(--ink-3);font:400 10.5px var(--mono)}
+  .hashchip{fill:#0d1420;stroke:#2a3550}
+  .hashchip-text{fill:#9fb0c8;font:400 10.5px var(--mono)}
+  .chain line{stroke:#26314a;stroke-width:1.5}
+  .chain circle{fill:#10151f;stroke:#3a4a6a;stroke-width:1.5}
+  .chain circle.head{stroke:var(--mint);fill:rgba(52,211,153,.15)}
+  .flow-arrow{stroke:#3d4a63;stroke-width:2;fill:none}
+  .verdict-mint{stroke:rgba(52,211,153,.65);fill:rgba(52,211,153,.05)}
+  .verdict-red{stroke:rgba(248,113,113,.55);fill:rgba(248,113,113,.045)}
+  .minted-title{fill:var(--mint-2);font:800 16px var(--sans);letter-spacing:.04em}
+  .refused-title{fill:var(--red-2);font:800 16px var(--sans);letter-spacing:.04em}
+  .verdict-sub{fill:var(--ink-2);font:400 11px var(--sans)}
+  .refchip{fill:rgba(248,113,113,.06);stroke:rgba(248,113,113,.35)}
+  .refchip-text{fill:var(--red-2);font:400 9.5px var(--mono)}
+  .vtag{fill:var(--ink-3);font:600 10px var(--mono)}
+  #agree-box{animation:softpulse 3.2s ease-in-out infinite}
+  @keyframes softpulse{0%,100%{filter:drop-shadow(0 0 0 rgba(52,211,153,0))}50%{filter:drop-shadow(0 0 9px rgba(52,211,153,.3))}}
+
+  /* ---------- v0.4 scoreboard ---------- */
+  .cards-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:34px}
+  .score-card{padding:26px 26px 22px;display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden}
+  .score-card::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:var(--accent,var(--mint));opacity:.8}
+  .score-card .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3)}
+  .score-card .big{font-family:var(--mono);font-weight:700;font-size:clamp(20px,2vw,24px);line-height:1.25;color:var(--ink)}
+  .score-card .big em{color:var(--mint-2);font-style:normal}
+  .score-card .big .to{color:var(--ink-3);font-weight:400}
+  .score-card p{margin:0;color:var(--ink-2);font-size:13.5px}
+  .score-card p code{font-family:var(--mono);font-size:.92em;color:var(--ink);background:#0c111b;border:1px solid var(--line);border-radius:5px;padding:0 5px}
+  .sc-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
+  .sc-chip{
+    font-family:var(--mono);font-size:11px;border-radius:999px;padding:3px 11px;
+    color:var(--mint-2);border:1px solid rgba(52,211,153,.35);background:rgba(52,211,153,.06);white-space:nowrap;
+  }
+  .sc-chip.red{color:var(--red-2);border-color:rgba(248,113,113,.35);background:rgba(248,113,113,.05)}
+  .sc-chip.plain{color:var(--ink-2);border-color:var(--line);background:var(--surface)}
+  .residual{
+    border:1px dashed rgba(251,191,36,.4);background:rgba(251,191,36,.05);border-radius:10px;
+    padding:10px 13px;font-size:12.5px;color:#fcd9a0;
+  }
+  .residual b{color:var(--amber)}
+  .gates{
+    margin-top:26px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    border:1px solid var(--line);border-radius:14px;padding:16px 20px;background:var(--bg-soft);
+  }
+  .gates .g-label{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);margin-right:6px}
+  .gate{
+    font-family:var(--mono);font-size:12px;color:var(--ink);display:inline-flex;align-items:center;gap:7px;
+    border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 13px;
+  }
+  .gate svg{flex:none}
+  .gate .pass{color:var(--mint-2);font-weight:700}
+
+  /* ---------- timeline ---------- */
+  .timeline{list-style:none;margin:38px 0 0;padding:0;position:relative}
+  .timeline::before{content:"";position:absolute;left:7px;top:6px;bottom:6px;width:1.5px;background:linear-gradient(180deg,#233049,var(--mint))}
+  .timeline li{position:relative;padding:0 0 34px 42px}
+  .timeline li:last-child{padding-bottom:4px}
+  .tl-dot{
+    position:absolute;left:0;top:5px;width:15px;height:15px;border-radius:50%;
+    border:2px solid #33415e;background:var(--bg);
+  }
+  .timeline li.current .tl-dot{border-color:var(--mint);background:var(--mint);box-shadow:0 0 14px rgba(52,211,153,.55)}
+  .tl-head{display:flex;align-items:center;gap:13px;flex-wrap:wrap;margin-bottom:7px}
+  .tl-ver{
+    font-family:var(--mono);font-weight:700;font-size:12.5px;color:var(--ink-2);
+    border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:2px 9px;
+  }
+  .timeline li.current .tl-ver{color:#04120c;background:var(--mint);border-color:var(--mint)}
+  .tl-title{font-weight:650;font-size:16.5px}
+  .timeline p{margin:0 0 10px;color:var(--ink-2);font-size:14px;max-width:74ch}
+  .tl-note{font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
+  .tl-note a{color:var(--mint-2);text-decoration:none;border-bottom:1px dashed rgba(52,211,153,.5)}
+
+  /* ---------- footer ---------- */
+  footer{border-top:1px solid var(--line-soft);padding:56px 0 64px;background:var(--bg-soft)}
+  .foot-grid{display:flex;gap:48px;flex-wrap:wrap;align-items:flex-start}
+  .foot-links{display:flex;gap:38px;flex-wrap:wrap}
+  .foot-links div{display:flex;flex-direction:column;gap:9px}
+  .foot-links h4{margin:0 0 3px;font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+  .foot-links a{color:var(--ink-2);text-decoration:none;font-size:13.5px;font-family:var(--mono)}
+  .foot-links a:hover{color:var(--mint-2)}
+  .foot-line{
+    margin:38px 0 0;max-width:74ch;color:var(--ink-2);font-size:14.5px;font-style:italic;
+  }
+  .foot-small{margin:14px 0 0;color:#5b6779;font-family:var(--mono);font-size:11px}
+
+  /* ---------- responsive ---------- */
+  @media (max-width:980px){
+    .replay-grid{grid-template-columns:1fr}
+    .cards-grid{grid-template-columns:1fr}
+    section{padding:72px 0}
+  }
+  @media (max-width:640px){
+    .wrap{padding:0 18px}
+    .topbar nav{display:none}
+    .banner{margin-left:0}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation:none !important;transition:none !important}
+    html{scroll-behavior:auto}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="#hero">stitch<b>.</b></a>
+    <span class="ver-chip">v0.4.0</span>
+    <nav>
+      <a href="#war">the game</a>
+      <a href="#mint">the mint</a>
+      <a href="#v04">v0.4</a>
+      <a href="#timeline">timeline</a>
+      <a href="https://github.com/SuperInstance/stitch">repo ↗</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<!-- ============================ HERO ============================ -->
+<section id="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <p class="overline">a tiny substrate primitive</p>
+        <h1>Accountable<br>agent state<span class="accent">.</span></h1>
+        <p class="hero-lede">
+          <span class="code">stitch</span> is 11 append-only stitches on hash-chained JSONL ledgers.
+          Shared state is never written into being — it is <b>minted</b> only where sovereign
+          ledgers, kept independently, turn out to agree.
+        </p>
+        <div class="chips">
+          <span class="chip">11 append-only stitches</span>
+          <span class="chip">hash-chained JSONL ledgers</span>
+          <span class="chip">minted only where ledgers agree</span>
+          <span class="chip formula">γ + η ≤ log₂3 · per tenant · per tick</span>
+        </div>
+        <div class="meta-row">
+          <span class="ver-chip">v0.4.0</span>
+          <span>2026-10-27 — three agents played a card game over it ↓</span>
+        </div>
+      </div>
+
+      <div class="hero-art" aria-hidden="true">
+        <!-- two sovereign chains; agreement is the dashed fact between them -->
+        <svg viewBox="0 0 520 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two ledger chains; where their records agree, a shared fact is minted">
+          <defs>
+            <marker id="h-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto">
+              <path d="M0 0 L10 5 L0 10 z" fill="#3d4a63"/>
+            </marker>
+          </defs>
+          <text x="0" y="45" fill="#7c8aa5" font-family="ui-monospace,Menlo,monospace" font-size="11">ledger A</text>
+          <text x="0" y="219" fill="#7c8aa5" font-family="ui-monospace,Menlo,monospace" font-size="11">ledger B</text>
+          <!-- row A -->
+          <g>
+            <rect x="92"  y="16" width="80" height="52" rx="10" fill="#0f141f" stroke="#232e44"/>
+            <rect x="188" y="16" width="80" height="52" rx="10" fill="#0f141f" stroke="#232e44"/>
+            <rect x="284" y="16" width="80" height="52" rx="10" fill="#0f141f" stroke="#232e44"/>
+            <rect x="380" y="16" width="80" height="52" rx="10" fill="#0f141f" stroke="#2b4a41"/>
+            <line x1="172" y1="42" x2="188" y2="42" stroke="#2a3550" stroke-width="1.5"/>
+            <line x1="268" y1="42" x2="284" y2="42" stroke="#2a3550" stroke-width="1.5"/>
+            <line x1="364" y1="42" x2="380" y2="42" stroke="#2a3550" stroke-width="1.5"/>
+            <path d="M176 36 l8 12 M176 48 l8 -12" stroke="#2f6f5e" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M272 36 l8 12 M272 48 l8 -12" stroke="#2f6f5e" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M368 36 l8 12 M368 48 l8 -12" stroke="#2f6f5e" stroke-width="1.5" stroke-linecap="round"/>
+          </g>
+          <!-- row B -->
+          <g>
+            <rect x="128" y="190" width="80" height="52" rx="10" fill="#0f141f" stroke="#232e44"/>
+            <rect x="224" y="190" width="80" height="52" rx="10" fill="#0f141f" stroke="#232e44"/>
+            <rect x="320" y="190" width="80" height="52" rx="10" fill="#0f141f" stroke="#232e44"/>
+            <rect x="416" y="190" width="80" height="52" rx="10" fill="#0f141f" stroke="#2b4a41"/>
+            <line x1="208" y1="216" x2="224" y2="216" stroke="#2a3550" stroke-width="1.5"/>
+            <line x1="304" y1="216" x2="320" y2="216" stroke="#2a3550" stroke-width="1.5"/>
+            <line x1="400" y1="216" x2="416" y2="216" stroke="#2a3550" stroke-width="1.5"/>
+            <path d="M212 210 l8 12 M212 222 l8 -12" stroke="#2f6f5e" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M308 210 l8 12 M308 222 l8 -12" stroke="#2f6f5e" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M404 210 l8 12 M404 222 l8 -12" stroke="#2f6f5e" stroke-width="1.5" stroke-linecap="round"/>
+          </g>
+          <!-- inner text lines -->
+          <g fill="#1c2536">
+            <rect x="102" y="28" width="60" height="5" rx="2"/><rect x="102" y="40" width="42" height="5" rx="2"/>
+            <rect x="198" y="28" width="60" height="5" rx="2"/><rect x="198" y="40" width="42" height="5" rx="2"/>
+            <rect x="294" y="28" width="60" height="5" rx="2"/><rect x="294" y="40" width="42" height="5" rx="2"/>
+            <rect x="390" y="28" width="60" height="5" rx="2"/><rect x="390" y="40" width="42" height="5" rx="2"/>
+            <rect x="138" y="202" width="60" height="5" rx="2"/><rect x="138" y="214" width="42" height="5" rx="2"/>
+            <rect x="234" y="202" width="60" height="5" rx="2"/><rect x="234" y="214" width="42" height="5" rx="2"/>
+            <rect x="330" y="202" width="60" height="5" rx="2"/><rect x="330" y="214" width="42" height="5" rx="2"/>
+            <rect x="426" y="202" width="60" height="5" rx="2"/><rect x="426" y="214" width="42" height="5" rx="2"/>
+          </g>
+          <!-- heads -->
+          <rect x="444" y="50" width="8" height="8" rx="2" fill="#34d399" opacity=".85"/>
+          <rect x="480" y="224" width="8" height="8" rx="2" fill="#34d399" opacity=".85"/>
+          <!-- the minted fact -->
+          <line x1="420" y1="68"  x2="400" y2="104" stroke="#34d399" stroke-width="1.5" stroke-dasharray="3 4" opacity=".5"/>
+          <line x1="264" y1="190" x2="348" y2="172" stroke="#34d399" stroke-width="1.5" stroke-dasharray="3 4" opacity=".5"/>
+          <rect x="300" y="104" width="152" height="68" rx="12" fill="rgba(52,211,153,.06)" stroke="#34d399" stroke-dasharray="5 5"/>
+          <text x="376" y="133" text-anchor="middle" fill="#6ee7b7" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="700" font-size="13">minted</text>
+          <text x="376" y="153" text-anchor="middle" fill="#9fb0c8" font-family="ui-monospace,Menlo,monospace" font-size="10">where records agree</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="sep">
+
+<!-- ============================ STITCH WAR ============================ -->
+<section id="war">
+  <div class="wrap">
+    <p class="overline">centrepiece · 2026-10-27</p>
+    <h2>STITCH WAR</h2>
+    <p class="lede">
+      A real game, really played. Three AI agent seats on three physical machines —
+      <b>Thor</b>, <b>Orin</b>, <b>ProArt</b> — played a two-trick card game over stitch itself.
+      Each play was a booking in the player's own ledger, on its own machine; the game bundle
+      travelled by plain file copy (scp), and each agent that played woke the next machine's
+      agent itself. No central driver after the deal.
+    </p>
+    <div class="fact-strip">
+      <span class="chip">3 agent seats · 3 physical machines</span>
+      <span class="chip">two tricks · six plays</span>
+      <span class="chip">every play = a booking in the player's own ledger</span>
+      <span class="chip">sync by scp — plain file copy</span>
+      <span class="chip">no central driver after the deal</span>
+    </div>
+
+    <!-- relay route -->
+    <div style="margin-top:44px">
+      <div class="scroller">
+        <svg id="route" viewBox="0 0 960 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Relay route: dealer (Muse's VM) to Thor to Orin to ProArt, cycling twice, ending back on Thor where the witness derive ran">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0 0 L10 5 L0 10 z" fill="#31405c"/>
+            </marker>
+            <marker id="arrow-mint" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0 0 L10 5 L0 10 z" fill="#34d399"/>
+            </marker>
+          </defs>
+
+          <!-- legs (drawn in travel direction) -->
+          <path id="leg0" class="leg" d="M 176 150 H 256" marker-end="url(#arrow)"/>
+          <path id="leg1" class="leg" d="M 428 150 H 510" marker-end="url(#arrow)"/>
+          <path id="leg2" class="leg" d="M 680 150 H 762" marker-end="url(#arrow)"/>
+          <path id="leg3" class="leg" d="M 882 182 C 882 254, 398 254, 398 186" marker-end="url(#arrow)"/>
+          <path id="leg4" class="leg" d="M 352 118 C 352 40, 596 40, 596 114" marker-end="url(#arrow)"/>
+          <path id="leg5" class="leg" d="M 604 118 C 604 18, 848 18, 848 114" marker-end="url(#arrow)"/>
+          <path id="leg6" class="leg" d="M 862 182 C 862 302, 348 302, 348 186" marker-end="url(#arrow)"/>
+
+          <text x="216" y="140" text-anchor="middle" fill="#64748b" font-family="ui-monospace,Menlo,monospace" font-size="10">scp</text>
+          <text x="605" y="288" text-anchor="middle" fill="#7c8aa5" font-family="ui-monospace,Menlo,monospace" font-size="10.5">witness derive</text>
+
+          <!-- nodes -->
+          <g id="node-dealer" class="node">
+            <rect class="body" x="16" y="118" width="160" height="64" rx="14"/>
+            <circle class="dot" cx="32" cy="140" r="4.5"/>
+            <text class="name" x="44" y="145">Dealer</text>
+            <text class="sub" x="32" y="166">Muse's VM</text>
+          </g>
+          <g id="node-thor" class="node">
+            <rect class="body" x="268" y="118" width="160" height="64" rx="14"/>
+            <circle class="dot" cx="284" cy="140" r="4.5"/>
+            <text class="name" x="296" y="145">Thor</text>
+            <text class="sub" x="284" y="166" id="thor-sub">agent · own ledger</text>
+          </g>
+          <g id="node-orin" class="node">
+            <rect class="body" x="520" y="118" width="160" height="64" rx="14"/>
+            <circle class="dot" cx="536" cy="140" r="4.5"/>
+            <text class="name" x="548" y="145">Orin</text>
+            <text class="sub" x="536" y="166">agent · own ledger</text>
+          </g>
+          <g id="node-proart" class="node">
+            <rect class="body" x="772" y="118" width="160" height="64" rx="14"/>
+            <circle class="dot" cx="788" cy="140" r="4.5"/>
+            <text class="name" x="800" y="145">ProArt</text>
+            <text class="sub" x="788" y="166">agent · own ledger</text>
+          </g>
+        </svg>
+      </div>
+      <p class="legend">
+        relay route — dealer (Muse's VM) → thor → orin → proart → thor → orin → proart → back to thor,
+        where the witness derive ran. Every arrow: the bundle moved by plain file copy, and the agent
+        that had just played woke the next machine's agent.
+      </p>
+    </div>
+
+    <!-- controls -->
+    <div class="controls">
+      <button id="btn-step" class="btn primary" type="button">Step ▸</button>
+      <button id="btn-reset" class="btn" type="button">Reset</button>
+      <div class="dots" id="dots" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <span class="counter" id="counter">the deal</span>
+    </div>
+    <noscript><p class="legend">the replay needs JavaScript — the plays, hands and hashes are listed in the table regardless.</p></noscript>
+
+    <!-- table + record panel -->
+    <div class="replay-grid">
+      <div class="card table" aria-label="The card table">
+        <div class="trick-row">
+          <div class="trick-label">trick 1</div>
+          <div class="slots">
+            <div class="slot" id="slot-0" data-wait="thor">
+              <div class="playcard p-thor" id="card-0">
+                <div class="rank">Q<small>12</small></div>
+                <div class="mid"><div class="who">thor</div><div class="machine">Thor</div></div>
+              </div>
+            </div>
+            <div class="slot" id="slot-1" data-wait="orin">
+              <div class="playcard p-orin" id="card-1">
+                <div class="rank">4</div>
+                <div class="mid"><div class="who">orin</div><div class="machine">Orin</div></div>
+              </div>
+            </div>
+            <div class="slot" id="slot-2" data-wait="proart">
+              <div class="playcard p-proart" id="card-2">
+                <div class="rank">A<small>14</small></div>
+                <div class="mid"><div class="who">proart</div><div class="machine">ProArt</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="banner" id="banner1">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7.5 L5.5 11 L12 3" fill="none" stroke="#34d399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          trick 1 winner — proart (14 · the Ace)
+        </div>
+        <div class="trick-row">
+          <div class="trick-label">trick 2</div>
+          <div class="slots">
+            <div class="slot" id="slot-3" data-wait="thor">
+              <div class="playcard p-thor" id="card-3">
+                <div class="rank">3</div>
+                <div class="mid"><div class="who">thor</div><div class="machine">Thor</div></div>
+              </div>
+            </div>
+            <div class="slot" id="slot-4" data-wait="orin">
+              <div class="playcard p-orin" id="card-4">
+                <div class="rank">8</div>
+                <div class="mid"><div class="who">orin</div><div class="machine">Orin</div></div>
+              </div>
+            </div>
+            <div class="slot" id="slot-5" data-wait="proart">
+              <div class="playcard p-proart" id="card-5">
+                <div class="rank">2</div>
+                <div class="mid"><div class="who">proart</div><div class="machine">ProArt</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="banner" id="banner2">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7.5 L5.5 11 L12 3" fill="none" stroke="#34d399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          trick 2 winner — orin (8)
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="card caption" aria-live="polite">
+          <p class="cap1" id="cap-line1">the deal — dealer (Muse's VM)</p>
+          <p class="cap2" id="cap-line2">hands · thor [3, 12] · orin [4, 8] · proart [2, 14]</p>
+        </div>
+        <div class="card final" id="final">
+          <span class="fs-label">final score</span>
+          <div class="fs-row"><span>orin 1</span><span>proart 1</span><span style="color:var(--ink-3)">thor 0</span></div>
+          <p class="fs-note">a draw between orin and proart</p>
+          <hr>
+          <p class="final-line">“Derived from the ledgers alone — the record is the game.”</p>
+          <p class="final-sub">a witness derived the whole game from the four ledger files alone</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- hands -->
+    <div class="card hands">
+      <div class="hand">
+        <span class="hand-label"><b>thor</b> · hand [3, 12]</span>
+        <div class="minicard p-thor" id="mini-thor-3">3<small>thor</small></div>
+        <div class="minicard p-thor" id="mini-thor-12">Q<small>thor</small></div>
+      </div>
+      <div class="hand">
+        <span class="hand-label"><b>orin</b> · hand [4, 8]</span>
+        <div class="minicard p-orin" id="mini-orin-4">4<small>orin</small></div>
+        <div class="minicard p-orin" id="mini-orin-8">8<small>orin</small></div>
+      </div>
+      <div class="hand">
+        <span class="hand-label"><b>proart</b> · hand [2, 14]</span>
+        <div class="minicard p-proart" id="mini-proart-2">2<small>proart</small></div>
+        <div class="minicard p-proart" id="mini-proart-14">A<small>proart</small></div>
+      </div>
+    </div>
+
+    <aside class="rehearsal">
+      <span class="tag">rehearsal</span>
+      <span>A doctored move file in rehearsal refused as <span class="code" style="font-size:12px">payload_mismatch</span> — and scored nothing.</span>
+    </aside>
+  </div>
+</section>
+
+<hr class="sep">
+
+<!-- ============================ HOW A MINT WORKS ============================ -->
+<section id="mint">
+  <div class="wrap">
+    <p class="overline">the primitive</p>
+    <h2>How a mint works</h2>
+    <p class="lede">
+      No coordinator, no shared clock, no server. Two ledgers that have never met can still
+      produce shared state — because each one already committed to the same exchange, in its own
+      book, under its own hand.
+    </p>
+
+    <div class="scroller" style="margin-top:38px">
+      <svg id="flow" viewBox="0 0 1020 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mint flow: two sovereign ledgers book the same exchange as SEND and RECEIVE with the payload hash committed at booking time; when the files meet, agree() compares the bookings; the shared fact is minted, or refused with a reason">
+        <defs>
+          <marker id="f-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#3d4a63"/>
+          </marker>
+          <marker id="f-arrow-mint" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#34d399"/>
+          </marker>
+          <marker id="f-arrow-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#f87171"/>
+          </marker>
+        </defs>
+
+        <!-- beat headers -->
+        <g class="beat-badge"><circle cx="35" cy="55" r="11"/><text x="35" y="59" text-anchor="middle">1</text></g>
+        <text class="beat-label" x="54" y="59">two sovereign ledgers</text>
+        <text class="beat-sub" x="54" y="76">each on its own machine</text>
+
+        <g class="beat-badge"><circle cx="275" cy="55" r="11"/><text x="275" y="59" text-anchor="middle">2</text></g>
+        <text class="beat-label" x="294" y="59">both book the same exchange</text>
+        <text class="beat-sub" x="294" y="76">SEND in one · RECEIVE in the other</text>
+
+        <g class="beat-badge"><circle cx="515" cy="55" r="11"/><text x="515" y="59" text-anchor="middle">3</text></g>
+        <text class="beat-label" x="534" y="59">whenever the files meet</text>
+        <text class="beat-sub" x="534" y="76">agree() compares the bookings</text>
+
+        <g class="beat-badge"><circle cx="735" cy="55" r="11"/><text x="735" y="59" text-anchor="middle">4</text></g>
+        <text class="beat-label" x="754" y="59">the verdict</text>
+        <text class="beat-sub" x="754" y="76">minted — or refused, with a reason</text>
+
+        <!-- beat 1: the ledgers -->
+        <g>
+          <rect class="flowbox" x="24" y="100" width="200" height="104" rx="14"/>
+          <text class="flowbox-title" x="40" y="130">ledger A</text>
+          <text class="flowbox-sub" x="40" y="148">sovereign · its own machine</text>
+          <g class="chain">
+            <line x1="40" y1="176" x2="190" y2="176"/>
+            <circle cx="56" cy="176" r="4.5"/><circle cx="96" cy="176" r="4.5"/><circle cx="136" cy="176" r="4.5"/>
+            <circle class="head" cx="176" cy="176" r="4.5"/>
+          </g>
+        </g>
+        <g>
+          <rect class="flowbox" x="24" y="268" width="200" height="104" rx="14"/>
+          <text class="flowbox-title" x="40" y="298">ledger B</text>
+          <text class="flowbox-sub" x="40" y="316">sovereign · its own machine</text>
+          <g class="chain">
+            <line x1="40" y1="344" x2="190" y2="344"/>
+            <circle cx="56" cy="344" r="4.5"/><circle cx="96" cy="344" r="4.5"/><circle cx="136" cy="344" r="4.5"/>
+            <circle class="head" cx="176" cy="344" r="4.5"/>
+          </g>
+        </g>
+
+        <!-- beat 2: the bookings -->
+        <g>
+          <rect class="flowbox" x="264" y="100" width="200" height="104" rx="14"/>
+          <text class="flowbox-title mono" x="280" y="128">SEND</text>
+          <text class="flowbox-sub" x="280" y="146">books the exchange</text>
+          <rect class="hashchip" x="280" y="156" width="136" height="22" rx="11"/>
+          <text class="hashchip-text" x="292" y="171">payload hash</text>
+          <text class="flowbox-sub" x="280" y="196">committed at booking time</text>
+        </g>
+        <g>
+          <rect class="flowbox" x="264" y="268" width="200" height="104" rx="14"/>
+          <text class="flowbox-title mono" x="280" y="296">RECEIVE</text>
+          <text class="flowbox-sub" x="280" y="314">books the exchange</text>
+          <rect class="hashchip" x="280" y="324" width="136" height="22" rx="11"/>
+          <text class="hashchip-text" x="292" y="339">payload hash</text>
+          <text class="flowbox-sub" x="280" y="364">committed at booking time</text>
+        </g>
+
+        <path class="flow-arrow" d="M 224 152 H 258" marker-end="url(#f-arrow)"/>
+        <path class="flow-arrow" d="M 224 320 H 258" marker-end="url(#f-arrow)"/>
+
+        <!-- beat 3: agree() -->
+        <g id="agree-box">
+          <rect class="flowbox" x="504" y="182" width="190" height="84" rx="14" style="stroke:#2f4a44"/>
+          <text class="flowbox-title mono" x="524" y="216" style="font-size:17px">agree()</text>
+          <text class="flowbox-sub" x="524" y="238">compares the bookings</text>
+          <text class="flowbox-sub" x="524" y="254">whenever the files meet</text>
+        </g>
+        <path class="flow-arrow" d="M 464 152 C 486 152, 486 206, 500 206" marker-end="url(#f-arrow)"/>
+        <path class="flow-arrow" d="M 464 320 C 486 320, 486 242, 500 242" marker-end="url(#f-arrow)"/>
+
+        <!-- beat 4a: minted -->
+        <rect class="flowbox verdict-mint" x="724" y="100" width="272" height="116" rx="14"/>
+        <text class="vtag" x="740" y="122">4a</text>
+        <circle cx="752" cy="144" r="12" fill="rgba(52,211,153,.1)" stroke="#34d399" stroke-width="1.5"/>
+        <path d="M746 144 l4.5 4.5 l9 -10" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <text class="minted-title" x="772" y="150">MINTED</text>
+        <text class="verdict-sub" x="740" y="180">the shared fact exists — derived,</text>
+        <text class="verdict-sub" x="740" y="198">stored nowhere new</text>
+        <path class="flow-arrow" d="M 694 208 C 712 208, 704 158, 712 158" stroke="#34d399" marker-end="url(#f-arrow-mint)"/>
+
+        <!-- beat 4b: refused -->
+        <rect class="flowbox verdict-red" x="724" y="252" width="272" height="152" rx="14"/>
+        <text class="vtag" x="740" y="274">4b</text>
+        <circle cx="752" cy="296" r="12" fill="rgba(248,113,113,.08)" stroke="#f87171" stroke-width="1.5"/>
+        <path d="M747 291 l10 10 M757 291 l-10 10" stroke="#f87171" stroke-width="2" stroke-linecap="round"/>
+        <text class="refused-title" x="772" y="302">REFUSED</text>
+        <g>
+          <rect class="refchip" x="740" y="316" width="120" height="24" rx="12"/><text class="refchip-text" x="800" y="331.5" text-anchor="middle">no_send</text>
+          <rect class="refchip" x="870" y="316" width="120" height="24" rx="12"/><text class="refchip-text" x="930" y="331.5" text-anchor="middle">no_receive</text>
+          <rect class="refchip" x="740" y="348" width="120" height="24" rx="12"/><text class="refchip-text" x="800" y="363.5" text-anchor="middle">payload_mismatch</text>
+          <rect class="refchip" x="870" y="348" width="120" height="24" rx="12"/><text class="refchip-text" x="930" y="363.5" text-anchor="middle">unsigned_booking</text>
+          <rect class="refchip" x="740" y="380" width="250" height="24" rx="12"/><text class="refchip-text" x="865" y="395.5" text-anchor="middle">bad_signature</text>
+        </g>
+        <path class="flow-arrow" d="M 694 240 C 712 240, 702 328, 712 328" stroke="#f87171" marker-end="url(#f-arrow-red)"/>
+      </svg>
+    </div>
+
+    <p class="flow-caption">“Shared state is never stored. It is derived, on demand, where records agree.”</p>
+  </div>
+</section>
+
+<hr class="sep">
+
+<!-- ============================ V0.4 ============================ -->
+<section id="v04">
+  <div class="wrap">
+    <p class="overline">v0.4.0 · the R&amp;D release</p>
+    <h2>What shipped</h2>
+    <p class="lede">
+      Three research findings became three patches — each one pinned by the test record.
+    </p>
+
+    <div class="cards-grid">
+      <article class="card score-card" style="--accent:#67e8f9">
+        <span class="kicker">byte-exactness fuzz</span>
+        <div class="big"><em>1,884</em> payloads<br>probed across Python/Rust</div>
+        <p>
+          Floats were the untested half of the contract: Python books
+          <code>1e-05</code>, a native Rust writer books <code>0.00001</code> — and
+          <b>139/776</b> float texts drift ±1 ulp through a default JSON parser.
+        </p>
+        <p>
+          Shipped: a SPEC numeric policy, plus a precision-safe Rust audit.
+        </p>
+        <div class="sc-chips">
+          <span class="sc-chip">cargo tests 6 → 10</span>
+        </div>
+      </article>
+
+      <article class="card score-card" style="--accent:#a78bfa">
+        <span class="kicker">fast Ed25519</span>
+        <div class="big">sign <span class="to">~360 ms</span> → <em>~1.5 ms</em><br>verify <span class="to">~290 ms</span> → <em>~4 ms</em></div>
+        <p>
+          Signatures byte-identical. Stdlib only — no dependency crept in.
+          The per-attestation audit cliff is gone.
+        </p>
+        <div class="sc-chips">
+          <span class="sc-chip">signatures byte-identical</span>
+          <span class="sc-chip plain">stdlib only</span>
+        </div>
+      </article>
+
+      <article class="card score-card" style="--accent:#34d399">
+        <span class="kicker">signed bookings</span>
+        <div class="big">an impostor ledger<br><span class="to">v0.3: minted</span> → <em>v0.4: refuses</em></div>
+        <p>
+          An impostor ledger claiming a tenant's identity minted in v0.3, when bookings were
+          unsigned. Under v0.4 key enforcement, it refuses.
+        </p>
+        <div class="sc-chips">
+          <span class="sc-chip red">unsigned_booking</span>
+          <span class="sc-chip red">bad_signature</span>
+          <span class="sc-chip plain">keyless ≡ v0.3, byte-identical</span>
+        </div>
+        <div class="residual">
+          <b>honest residual</b> — a verbatim replay of a genuine signed booking still mints.
+        </div>
+      </article>
+    </div>
+
+    <div class="gates">
+      <span class="g-label">gates</span>
+      <span class="gate">174 Python tests</span>
+      <span class="gate">10 Rust tests</span>
+      <span class="gate"><svg width="13" height="13" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7.5 L5.5 11 L12 3" fill="none" stroke="#34d399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>cross-language check <span class="pass">PASSED</span></span>
+      <span class="gate">v0.3 verified on five surfaces · VM · Oracle · Orin · Thor · ProArt</span>
+    </div>
+  </div>
+</section>
+
+<hr class="sep">
+
+<!-- ============================ TIMELINE ============================ -->
+<section id="timeline">
+  <div class="wrap">
+    <p class="overline">the record</p>
+    <h2>Timeline</h2>
+
+    <ol class="timeline">
+      <li>
+        <div class="tl-dot"></div>
+        <div class="tl-head"><span class="tl-ver">v0.1</span><span class="tl-title">the 11 stitches and the conservation law</span></div>
+        <p>Eleven append-only operations on hash-chained JSONL ledgers; γ + η ≤ log₂3 per tenant, per tick, enforced at write time.</p>
+      </li>
+      <li>
+        <div class="tl-dot"></div>
+        <div class="tl-head"><span class="tl-ver">v0.2</span><span class="tl-title">the agreement layer</span></div>
+        <p>Bookings, minting, and the head-hash anchor — shared state derived where sovereign ledgers agree.</p>
+      </li>
+      <li>
+        <div class="tl-dot"></div>
+        <div class="tl-head"><span class="tl-ver">v0.3</span><span class="tl-title">budgets become declarations; N-party agreement; Ed25519 attestations (opt-in)</span></div>
+        <p>Adopted with a position-aware budget patch, after an independent assessment caught a draft flaw.</p>
+        <div class="sc-chips"><span class="sc-chip plain">54 → 150 tests</span></div>
+      </li>
+      <li class="current">
+        <div class="tl-dot"></div>
+        <div class="tl-head"><span class="tl-ver">v0.4</span><span class="tl-title">the R&amp;D release — signed bookings, ~300× faster crypto, the numeric policy</span></div>
+        <p>Plus: three agents played cards over it.</p>
+        <div class="sc-chips">
+          <span class="sc-chip">174 tests</span>
+          <span class="tl-note"><a href="#war">↑ replay the game</a></span>
+        </div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- NEXT SECTION -->
+
+</main>
+
+<!-- ============================ FOOTER ============================ -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-links">
+        <div>
+          <h4>docs</h4>
+          <a href="https://github.com/SuperInstance/stitch/blob/showcase/SPEC.md">SPEC.md</a>
+          <a href="https://github.com/SuperInstance/stitch/blob/showcase/VERIFICATION.md">VERIFICATION.md</a>
+          <a href="https://github.com/SuperInstance/stitch/blob/showcase/AGENTS.md">AGENTS.md</a>
+        </div>
+        <div>
+          <h4>build with it</h4>
+          <a href="https://github.com/SuperInstance/stitch/tree/showcase/tutorials">tutorials/</a>
+          <a href="https://github.com/SuperInstance/stitch">github.com/SuperInstance/stitch</a>
+        </div>
+      </div>
+    </div>
+    <p class="foot-line">
+      Built in the open by Casey and his fleet — the process is in VERIFICATION.md;
+      this page shows only what the record proves.
+    </p>
+    <p class="foot-small">this page is one self-contained HTML file · docs/index.html · no external resources</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  var PLAYS = [
+    { turn:0, player:"thor",   trick:1, card:12, xchg:"t1-thor",   hash:"55282c950de0…" },
+    { turn:1, player:"orin",   trick:1, card:4,  xchg:"t1-orin",   hash:"6ecf7078425a…" },
+    { turn:2, player:"proart", trick:1, card:14, xchg:"t1-proart", hash:"05475e6665a7…" },
+    { turn:3, player:"thor",   trick:2, card:3,  xchg:"t2-thor",   hash:"921c81dab43c…" },
+    { turn:4, player:"orin",   trick:2, card:8,  xchg:"t2-orin",   hash:"84cdae0e40d3…" },
+    { turn:5, player:"proart", trick:2, card:2,  xchg:"t2-proart", hash:"f70d9f18a97a…" }
+  ];
+  var TRICK_WINNER = { 1:{player:"proart",card:14}, 2:{player:"orin",card:8} };
+
+  var state = -1; // -1 deal · 0..5 plays · 6 witness derive
+
+  var $ = function(id){ return document.getElementById(id); };
+  var stepBtn = $("btn-step"), resetBtn = $("btn-reset"), counter = $("counter");
+  var cap1 = $("cap-line1"), cap2 = $("cap-line2");
+  var banner1 = $("banner1"), banner2 = $("banner2"), final = $("final");
+  var thorSub = $("thor-sub");
+  var dots = Array.prototype.slice.call(document.querySelectorAll("#dots span"));
+  var NODES = ["dealer","thor","orin","proart"];
+
+  function trickDone(t){ return t === 1 ? state >= 2 : state >= 5; }
+
+  function render(){
+    var i = state, k, el;
+
+    for (k = 0; k < 7; k++){
+      el = $("leg" + k);
+      el.classList.toggle("lit", k <= i);
+      el.classList.toggle("current", k === i);
+    }
+
+    var active = i < 0 ? "dealer" : (i < 6 ? PLAYS[i].player : "thor");
+    NODES.forEach(function(n){
+      var g = $("node-" + n);
+      var visited = (n === "dealer" && i >= 0) ||
+        PLAYS.slice(0, Math.max(0, i)).some(function(p){ return p.player === n; });
+      g.classList.toggle("active", n === active);
+      g.classList.toggle("visited", visited && n !== active);
+    });
+    thorSub.textContent = (i === 6) ? "witness derive · here" : "agent · own ledger";
+
+    PLAYS.forEach(function(p, k){
+      var card = $("card-" + k);
+      card.classList.toggle("shown", k <= i);
+      var done = trickDone(p.trick);
+      var win = TRICK_WINNER[p.trick];
+      card.classList.toggle("winner", done && p.player === win.player);
+      card.classList.toggle("dimmed", done && p.player !== win.player);
+      $("slot-" + k).classList.toggle("filled", k <= i);
+      $("mini-" + p.player + "-" + p.card).classList.toggle("played", k <= i);
+    });
+
+    banner1.classList.toggle("show", i >= 2);
+    banner2.classList.toggle("show", i >= 5);
+    final.classList.toggle("show", i >= 6);
+
+    if (i < 0){
+      cap1.textContent = "the deal — dealer (Muse's VM)";
+      cap2.innerHTML = "hands · thor [3, 12] · orin [4, 8] · proart [2, 14]";
+      counter.textContent = "the deal";
+    } else if (i < 6){
+      var p = PLAYS[i];
+      cap1.textContent = "turn " + p.turn + " — " + p.player + " plays card " + p.card +
+        (p.card === 14 ? " (the Ace)" : "") + " into trick " + p.trick;
+      cap2.innerHTML = "booking · <b>xchg " + p.xchg + "</b> · payload hash " + p.hash;
+      counter.textContent = "turn " + p.turn + " / 5 · " + p.player;
+    } else {
+      cap1.textContent = "witness — derive on thor";
+      cap2.innerHTML = "the whole game derived from <b>the four ledger files</b> alone";
+      counter.textContent = "witness derive · replay complete";
+    }
+
+    stepBtn.disabled = i >= 6;
+    dots.forEach(function(d, k){ d.classList.toggle("on", k <= i); });
+  }
+
+  stepBtn.addEventListener("click", function(){
+    if (state < 6){ state++; render(); }
+  });
+  resetBtn.addEventListener("click", function(){
+    state = -1; render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
