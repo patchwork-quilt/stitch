@@ -18,15 +18,20 @@ python3 work.py     # the agent does the job and journals it
 python3 audit.py    # the supervisor checks the journal, cold
 ```
 
-Real output (abridged; your head hash will differ — entries carry
+Real output (your head hash will differ — entries carry
 timestamps):
 
 ```
   monday.txt: 1 action(s), effect committed=True, gamma now 1.00
   monday.txt: second write rejected (budget spent) — ticking and retrying
+  monday.txt: retry committed=True
   tuesday.txt: 0 action(s), effect committed=True, gamma now 0.00
   wednesday.txt: 2 action(s), effect committed=True, gamma now 1.00
+  wednesday.txt: second write rejected (budget spent) — ticking and retrying
+  wednesday.txt: retry committed=True
+
 Journal: journal.jsonl — 17 entries, 3 action(s) total
+Now audit it like a supervisor would:  python3 audit.py
 ```
 
 ```
@@ -34,7 +39,9 @@ chain_ok : True (broken at: None)
 law_ok   : True (max excess: 0.0)
 entries  : 17
 budgets  : {'field-agent': 1.584962500721156}  (declared in the ledger itself)
+head     : d29dc919e4b9b5e1
 attested : 'processed 3 action(s)' by field-agent
+record shows: 3 note(s) processed, 1 attestation(s)
 AUDIT: PASS
 ```
 
@@ -64,7 +71,11 @@ AUDIT: PASS
   worker's state. Try it: edit any number inside `journal.jsonl` and
   re-run — the chain breaks; append a hand-made overspend and the law
   replay catches it even with a valid chain (that's the difference
-  between `verify()` and a real audit; see VERIFICATION.md).
+  between `verify()` and a real audit; see VERIFICATION.md). One
+  reading note for a broken chain: `entries` counts only the verified
+  prefix up to the break, while the `record shows` line comes from a raw
+  scan of the whole file — so the two counts parting ways is the tamper,
+  made visible.
 
 ## Adapt it
 
@@ -87,8 +98,10 @@ signed attestation and a keyed audit.
 
 ## Exercises
 
-1. Give the agent budget for two surprises per tick
-   (`Tenant(budget=2.5)` + declaration) and watch the rejections
+1. Give the agent budget for two surprises per tick — one edit in
+   `work.py`: `Tenant(budget=2.5)`. The declaration follows the tenant
+   automatically (`declare_budget` records whatever budget the tenant
+   carries), so no second edit is needed. Watch the rejections
    disappear — then check what the audit reports about budgets.
 2. Delete the last three lines of `journal.jsonl` and re-audit. The
    chain still verifies — what *would* catch this? (Tutorial 02's
