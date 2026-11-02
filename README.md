@@ -258,6 +258,12 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for where `stitch` sits in the larger T
 
 See [SPEC.md](./SPEC.md) for the canonical wire format, opcode definitions, hash computation, and byte-exactness requirements.
 
+## Documentation
+
+- [WHY.md](./WHY.md) — the problem, the conservation rule, and what stitch is not, on one page.
+- [SECURITY.md](./SECURITY.md) — what ledgers, audits, anchors, and signatures do and do not prove.
+- [CONFORMANCE.md](./CONFORMANCE.md) — the scoped definition of a stitch implementation and the evidence a port must provide.
+
 ## Demo
 
 ```bash
