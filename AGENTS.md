@@ -43,6 +43,8 @@ no shared clock, no server. Ledgers sync by plain file copy.
 | `stitch-python/tests/` | The 174-test suite (pytest). `tests/cross_lang.py` at repo root holds the Python↔Rust vectors |
 | `stitch-python/examples/` | Runnable demos; README's Examples table gives each one's invocation |
 | `stitch-rs/` | Partial Rust port: ledger, hash chain, `bind`, v0.2 audit, precision-safe number handling. 10 tests. Minting and v0.3 features are Python-first |
+| `c/` | Pure C99 port of the keyless core: canonical JSON, hash chain, audit, agreement, the 11 stitches. 69-check conformance battery against the Python reference (`c/conformance/run.sh`); scope and divergences in `c/CONFORMANCE.md` |
+| `lean/` | Lean 4 formal specification of the agreement + conservation core: minting soundness and the conservation law as machine-checked theorems. `lake build`; `lean/check_axioms.sh` gates on no `sorryAx` |
 | `tutorials/` | Working templates for real jobs — start here for applied work |
 | `SPEC.md` / `VERIFICATION.md` / `ARCHITECTURE.md` | Spec / test record / design context |
 
@@ -53,6 +55,8 @@ python3 stitch-python/examples/minimal_agent.py            # demo
 python3 -m venv .venv && .venv/bin/pip install pytest      # suite needs pytest
 .venv/bin/python -m pytest stitch-python/tests/            # 174 tests, from root or inside stitch-python/
 (cd stitch-rs && cargo test)                               # 10 Rust tests — skip if cargo is absent; Rust is not needed for the Python library
+make -C c && bash c/conformance/run.sh                     # C port: build + 69-check conformance against the Python reference
+(cd lean && lake build) && bash lean/check_axioms.sh       # Lean: build + axiom gate (no sorryAx) — needs elan; toolchain pinned in lean/lean-toolchain
 bash tutorials/02-agent-handoff/run_demo.sh                # a tutorial end-to-end
 ```
 

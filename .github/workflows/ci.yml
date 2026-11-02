@@ -1,6 +1,8 @@
-# CI for stitch: the Python suite, the Rust crate, and the
-# cross-language byte-exactness harness. Every command below is one
-# the maintainers run locally (see AGENTS.md "Run everything").
+# CI for stitch: the Python suite, the Rust crate, the
+# cross-language byte-exactness harness, the C port's conformance
+# battery, and the Lean formalisation (build + axiom gate). Every
+# command below is one the maintainers run locally (see AGENTS.md
+# "Run everything").
 name: CI
 
 on:
@@ -35,3 +37,37 @@ jobs:
           python-version: "3.12"
       - name: Cross-language harness (Python side)
         run: python3 tests/cross_lang.py
+
+  c:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the package (the conformance driver regenerates fixtures with it)
+        run: pip install "./stitch-python[test]"
+      - name: Build the C port
+        run: make -C c
+      - name: C conformance (69 checks against the Python reference)
+        run: |
+          out=$(bash c/conformance/run.sh)
+          echo "$out"
+          echo "$out" | grep -q "conformance: 69 passed, 0 failed"
+
+  lean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install elan (the Lean toolchain manager)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Install the pinned toolchain (lean/lean-toolchain)
+        working-directory: lean
+        run: elan toolchain install "$(cat lean-toolchain)"
+      - name: Build the Lean formalisation
+        working-directory: lean
+        run: lake build
+      - name: Axiom gate (no sorryAx under the headline theorems)
+        run: bash lean/check_axioms.sh
