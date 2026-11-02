@@ -152,10 +152,17 @@ pip install ./stitch-python        # or: pip install -e ./stitch-python
 cp -r stitch-python/stitch /your/project/
 ```
 
-Not yet on PyPI (as of v0.4.0, 2026-10-27): `pip install stitch-substrate`
-will fail with "No matching distribution found" until it is published.
-Until then, use one of the routes above — or, for a quick script
-against a clone, `PYTHONPATH=/path/to/stitch-python python3 your_script.py`.
+The v0.4.1 release routes: download the wheel or sdist from the
+[GitHub release](https://github.com/patchwork-quilt/stitch/releases/tag/v0.4.1)
+— each release's artifacts are attested in a stitch ledger
+(`release-attestation.jsonl`; see `scripts/attest_release.py`) — or use
+one of the clone routes above. The registry routes are wired for OIDC
+publishing and go live once the one-time publisher registrations are
+completed: `pip install stitch-substrate` (PyPI) and
+`cargo add stitch-substrate` (crates.io; the library name stays
+`stitch`). Until then they will fail with "No matching distribution
+found". For a quick script against a clone,
+`PYTHONPATH=/path/to/stitch-python python3 your_script.py` also works.
 
 Whichever route you pick, make `import stitch` true **before** copying
 any code block below, and beware one trap: if your working directory
@@ -299,6 +306,12 @@ Verifies the conservation law, the hash chain, byte-exactness, all 11 stitches, 
 MIT — see [LICENSE](./LICENSE).
 
 ## Status
+
+This repo's canonical home moved to the **patchwork-quilt**
+organization on 2026-11-02 (it was developed in the open under
+SuperInstance). The v0.4.1 tag was cut from the new home after the C99
+and Lean ports merged on main — see CHANGELOG.md's Unreleased section
+for what they add on top of the 0.4.1 assembly.
 
 v0.4.1 — the tightening patch: the booking helpers now enforce the SPEC numeric policy (non-finite floats refuse with `ValueError` before anything is written; readers unchanged), and the repo has CI (suite + install smoke + cargo + cross-language on every push). **181 tests.** Details in [VERIFICATION.md](./VERIFICATION.md).
 
