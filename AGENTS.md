@@ -1,6 +1,6 @@
 # AGENTS.md — working in this repo, for agents (and the humans who send them)
 
-You have arrived cold at `SuperInstance/stitch`. This file is the map.
+You have arrived cold at `patchwork-quilt/stitch`. This file is the map.
 It was written after a cold test (2026-10-27, see VERIFICATION.md)
 showed exactly where a new agent gets stuck; every claim below was
 re-verified by running it.

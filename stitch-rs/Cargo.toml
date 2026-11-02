@@ -1,11 +1,12 @@
 [package]
-name = "stitch"
-version = "0.3.0"
+name = "stitch-substrate"
+version = "0.4.1"
 edition = "2021"
 license = "MIT"
 description = "A tiny, language-portable substrate primitive for accountable agent state."
 authors = ["SuperInstance"]
-repository = "https://github.com/SuperInstance/stitch"
+repository = "https://github.com/patchwork-quilt/stitch"
+homepage = "https://github.com/patchwork-quilt/stitch"
 keywords = ["substrate", "agent", "conservation-law", "ledger", "surprise"]
 categories = ["data-structures", "cryptography::cryptocurrencies"]
 

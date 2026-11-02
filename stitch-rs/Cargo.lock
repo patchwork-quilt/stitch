@@ -146,8 +146,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "stitch"
-version = "0.3.0"
+name = "stitch-substrate"
+version = "0.4.1"
 dependencies = [
  "serde_json",
  "sha2",

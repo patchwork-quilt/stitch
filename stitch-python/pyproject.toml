@@ -10,7 +10,7 @@ description = "A tiny, language-portable substrate primitive for accountable age
 # project root ("../README.md") makes setuptools refuse to build at all
 # (cold-test finding F1, 2026-10-27 — `pip install` was broken entirely).
 # The full readme lives at the repository root.
-readme = { text = "stitch — a tiny, language-portable substrate primitive for accountable agent state: 11 append-only stitches on hash-chained JSONL ledgers, a per-tenant conservation law, and shared state minted only where sovereign ledgers agree. Zero dependencies (Python stdlib only). Full documentation: https://github.com/SuperInstance/stitch", content-type = "text/plain" }
+readme = { text = "stitch — a tiny, language-portable substrate primitive for accountable agent state: 11 append-only stitches on hash-chained JSONL ledgers, a per-tenant conservation law, and shared state minted only where sovereign ledgers agree. Zero dependencies (Python stdlib only). Full documentation: https://github.com/patchwork-quilt/stitch", content-type = "text/plain" }
 license = { text = "MIT" }
 authors = [
     { name = "SuperInstance" }
@@ -34,8 +34,8 @@ keywords = ["substrate", "agent", "conservation-law", "append-only", "ledger", "
 test = ["pytest"]
 
 [project.urls]
-"Homepage" = "https://github.com/SuperInstance/stitch"
-"Specification" = "https://github.com/SuperInstance/stitch/blob/main/SPEC.md"
+"Homepage" = "https://github.com/patchwork-quilt/stitch"
+"Specification" = "https://github.com/patchwork-quilt/stitch/blob/main/SPEC.md"
 
 [tool.setuptools.packages.find]
 include = ["stitch*"]
