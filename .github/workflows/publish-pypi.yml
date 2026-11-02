@@ -1,0 +1,43 @@
+# Publish the Python package (stitch-substrate) to PyPI with OIDC
+# trusted publishing — no API tokens, no secrets.
+#
+# ONE-TIME OWNER REGISTRATION THIS WORKFLOW WAITS ON:
+# PyPI must know this repo+workflow as a publisher for the project
+# before the token exchange succeeds. On pypi.org: "Publishing" ->
+# "Add a pending publisher" for project `stitch-substrate`, with
+# owner `patchwork-quilt`, repository `stitch`, workflow
+# `publish-pypi.yml`, and no environment name. Until that registration
+# exists the publish step fails at the OIDC exchange — expected, not a
+# workflow bug. (A pending publisher can be registered before the
+# project exists on PyPI; the first successful run creates it.)
+#
+# Triggers: publishing a GitHub Release (whose assets are built from
+# the same tree this workflow builds), or manual dispatch.
+name: Publish (PyPI)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # OIDC token exchange with PyPI
+
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist + wheel (same command as the local release build)
+        working-directory: stitch-python
+        run: |
+          pip install build
+          python -m build
+      - name: Publish to PyPI (OIDC trusted publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: stitch-python/dist

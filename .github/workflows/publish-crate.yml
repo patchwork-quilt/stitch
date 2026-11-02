@@ -1,0 +1,40 @@
+# Publish the Rust crate (stitch-substrate; library name `stitch`) to
+# crates.io with OIDC trusted publishing — no stored API token.
+#
+# ONE-TIME OWNER STEPS THIS WORKFLOW WAITS ON:
+# crates.io only lets you register a trusted publisher for a crate
+# that ALREADY exists, so the first publish cannot use this workflow.
+# The owner must bootstrap once: create a crates.io API token
+# (crates.io -> Account Settings -> API Tokens), run a single manual
+# `cargo publish` from stitch-rs/ with it, then revoke the token and,
+# on the crate's crates.io settings page, add a Trusted Publisher
+# naming repository `patchwork-quilt/stitch` and workflow
+# `publish-crate.yml`. From then on this workflow is the publish route.
+# Until the bootstrap exists the auth step fails — expected, not a
+# workflow bug. (crates.io's own `stitch` crate name is an unrelated
+# 2018 crate, which is why the package is `stitch-substrate`; the
+# library name stays `stitch`.)
+#
+# Trigger: manual dispatch only — crate releases are deliberate.
+name: Publish (crates.io)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # OIDC token exchange with crates.io
+
+jobs:
+  crate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exchange the OIDC token for a short-lived crates.io token
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish the crate
+        working-directory: stitch-rs
+        run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
