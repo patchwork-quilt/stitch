@@ -232,6 +232,160 @@ int jv_obj_del(jval *obj, const char *key)
     return 0;
 }
 
+/* ================= exact shortest float digits =================
+ *
+ * py_float_repr needs the shortest decimal that reads back as
+ * exactly v under round-to-nearest-even; among the shortest, the
+ * closest to v; an exact tie goes to an even last digit. That is
+ * CPython's dtoa rule (json.dumps / repr spelling).
+ *
+ * The previous formatter took printf's correctly-rounded %.*e
+ * candidate and its two decimal neighbours and compared distances
+ * in long double. On near-ties — values whose exact expansion sits
+ * almost exactly between two shortest candidates, e.g. ending
+ * ...75 at the 18th digit — the true distance gap (~1e-289 for a
+ * value near 1e-256) is far below the resolution of the long
+ * double subtraction (~1e-275), so the choice was made by rounding
+ * noise: 20 of the 200,942 corpus patterns came out one decimal
+ * ulp too high (the x86-64 corpus run; the same code passed on
+ * aarch64, where long double is 128-bit quad — luck, not margin).
+ *
+ * This implementation compares exactly, with integers only. A
+ * finite double is a dyadic rational F * 2^E whose decimal
+ * expansion terminates, and its round-trip interval is
+ * [(2F-1)*2^(E-1), (2F+1)*2^(E-1)] — the lower midpoint halved
+ * once more when F == 2^52 above the smallest binade, where the
+ * spacing below is half the spacing above. Endpoints belong to
+ * the interval iff F is even (a midpoint parses to the neighbour
+ * with the even significand). All three decimals are computed
+ * exactly with a small bignum: F * 5^-E for E < 0, F << E else.
+ * The scan then walks prefixes of v's own digits: at each length
+ * the two grid neighbours of v are tested against the interval;
+ * the first length with a member wins, and closeness is decided
+ * by v's exact remaining digits. No tables, no floating point.
+ */
+
+/* Bignum: little-endian 32-bit limbs. The worst values here are
+ * (2F+1) * 5^1075 < 2^2551 and integers < 2^1026, so 96 limbs
+ * (3072 bits) carries both with margin. */
+#define BIG_LIMBS 96
+typedef struct { uint32_t w[BIG_LIMBS]; int n; } bignum;
+
+static void big_from_u64(bignum *b, uint64_t x)
+{
+    b->w[0] = (uint32_t)x;
+    b->w[1] = (uint32_t)(x >> 32);
+    b->n = (x >> 32) ? 2 : (x ? 1 : 0);
+}
+
+static void big_mul_u32(bignum *b, uint32_t m)
+{
+    uint64_t carry = 0;
+    int i;
+    for (i = 0; i < b->n; ++i) {
+        uint64_t cur = (uint64_t)b->w[i] * m + carry;
+        b->w[i] = (uint32_t)cur;
+        carry = cur >> 32;
+    }
+    if (carry) b->w[b->n++] = (uint32_t)carry;
+}
+
+static void big_shl(bignum *b, int bits)
+{
+    int words = bits / 32, rem = bits % 32, i;
+    if (b->n == 0 || bits == 0) return;
+    for (i = b->n - 1; i >= 0; --i) b->w[i + words] = b->w[i];
+    for (i = 0; i < words; ++i) b->w[i] = 0;
+    b->n += words;
+    if (rem) {
+        uint32_t carry = 0;
+        for (i = 0; i < b->n; ++i) {
+            uint32_t nc = b->w[i] >> (32 - rem);
+            b->w[i] = (b->w[i] << rem) | carry;
+            carry = nc;
+        }
+        if (carry) b->w[b->n++] = carry;
+    }
+    while (b->n > 0 && b->w[b->n - 1] == 0) b->n--;
+}
+
+/* Decimal digits of *src, most significant first, NUL-terminated.
+ * out must hold 800 chars (768 digits is the double worst case).
+ * Returns the digit count. */
+static int big_digits(const bignum *src, char *out)
+{
+    bignum t = *src;
+    uint32_t groups[BIG_LIMBS];
+    int ng = 0, len = 0;
+    if (t.n == 0) { out[0] = '0'; out[1] = '\0'; return 1; }
+    while (t.n > 0) {
+        uint64_t rem = 0;
+        int i;
+        for (i = t.n - 1; i >= 0; --i) {
+            uint64_t cur = (rem << 32) | t.w[i];
+            t.w[i] = (uint32_t)(cur / 1000000000u);
+            rem = cur % 1000000000u;
+        }
+        while (t.n > 0 && t.w[t.n - 1] == 0) t.n--;
+        groups[ng++] = (uint32_t)rem;
+    }
+    {
+        int i = ng - 1, tl = 0;
+        char tmp[16];
+        uint32_t g = groups[i];
+        do { tmp[tl++] = (char)('0' + (g % 10)); g /= 10; } while (g);
+        while (tl) out[len++] = tmp[--tl];
+        for (i = ng - 2; i >= 0; --i) {
+            uint32_t gg = groups[i];
+            int k;
+            for (k = 8; k >= 0; --k) {
+                out[len + k] = (char)('0' + (gg % 10));
+                gg /= 10;
+            }
+            len += 9;
+        }
+    }
+    out[len] = '\0';
+    return len;
+}
+
+/* Exact decimal expansion of M * 2^E (M > 0): digits into `digits`,
+ * *decpt set so that value == 0.digits * 10^decpt. Trailing zeros
+ * are stripped (same value); the first digit is never zero. */
+static void exact_decimal(uint64_t M, int E, char *digits, int *decpt)
+{
+    bignum b;
+    int len, q = 0;
+    big_from_u64(&b, M);
+    if (E >= 0) {
+        big_shl(&b, E);
+    } else {
+        int k = -E;
+        q = E;
+        while (k >= 13) { big_mul_u32(&b, 1220703125u); k -= 13; } /* 5^13 */
+        while (k-- > 0) big_mul_u32(&b, 5u);
+    }
+    len = big_digits(&b, digits);
+    *decpt = len + q;   /* decpt counts from the leading digit:
+                         * stripping trailing zeros must not move it */
+    while (len > 1 && digits[len - 1] == '0') digits[--len] = '\0';
+}
+
+/* Compare 0.da * 10^pa with 0.db * 10^pb; first digits are nonzero
+ * and digits past the end of either string read as zero. */
+static int cmp_decimal(const char *da, int pa, const char *db, int pb)
+{
+    int la = (int)strlen(da), lb = (int)strlen(db), i = 0;
+    if (pa != pb) return pa < pb ? -1 : 1;
+    for (;;) {
+        char ca = i < la ? da[i] : '0';
+        char cb = i < lb ? db[i] : '0';
+        if (ca != cb) return ca < cb ? -1 : 1;
+        if (i >= la && i >= lb) return 0;
+        ++i;
+    }
+}
+
 /* ================= Python float repr ================= */
 
 void py_float_repr(double v, char *buf, size_t bufsz)
@@ -243,98 +397,97 @@ void py_float_repr(double v, char *buf, size_t bufsz)
         int neg = signbit(v) != 0;
         double a = fabs(v);
         char digits[24];
-        int ndig = 0, decpt = 0, prec, found = 0;
-        char tmp[64];
-        /* Shortest round-trip digits: the smallest precision whose
-         * correctly-rounded decimal reads back as exactly v. glibc
-         * printf is correctly rounded, as is CPython's dtoa, so the
-         * digit strings agree. */
-        /* Shortest round-trip digits. The correctly-rounded %.*e
-         * candidate can fall just outside the round-trip interval
-         * (the interval is asymmetric — e.g. below a power of two
-         * the ulp halves) while a decimal neighbour inside it
-         * exists, so test the candidate and both neighbours; among
-         * round-trippers choose the closest to the true value,
-         * ties to an even last digit — CPython's dtoa rule. */
-        for (prec = 1; prec <= 17 && !found; ++prec) {
-            char base[24];
-            int bn = 0, bdecpt = 0, ci, best = -1;
-            long double bestdist = 0.0L;
-            const char *p;
-            int exp10;
-            snprintf(tmp, sizeof tmp, "%.*e", prec - 1, a);
-            p = tmp;
-            while (*p && *p != 'e' && *p != 'E') {
-                if (isdigit((unsigned char)*p)) base[bn++] = *p;
-                p++;
-            }
-            exp10 = atoi(p + 1);
-            bdecpt = exp10 + 1;
-            base[bn] = '\0';
-            for (ci = -1; ci <= 1; ++ci) {
-                char cd[24];
-                int cn = bn, cdecpt = bdecpt, i;
-                memcpy(cd, base, (size_t)bn + 1);
-                if (ci < 0) {          /* decrement the digit string */
-                    i = cn - 1;
-                    while (i >= 0 && cd[i] == '0') { cd[i] = '9'; i--; }
-                    if (i < 0) { /* 1000.. -> 999.. with decpt-1 */
-                        for (i = 0; i < cn; ++i) cd[i] = '9';
-                        cdecpt--;
-                    } else cd[i]--;
-                } else if (ci > 0) {   /* increment the digit string */
-                    i = cn - 1;
-                    while (i >= 0 && cd[i] == '9') { cd[i] = '0'; i--; }
-                    if (i < 0) { /* 999.. -> 1 with decpt+1 */
-                        cd[0] = '1'; cn = 1; cd[1] = '\0';
-                        cdecpt++;
-                    } else cd[i]++;
-                }
-                {
-                    /* test string d.ddddde±XX for this candidate */
-                    char test[64];
-                    int w = 0;
-                    long double dist;
-                    test[w++] = cd[0];
-                    if (cn > 1) {
-                        test[w++] = '.';
-                        for (i = 1; i < cn; ++i) test[w++] = cd[i];
+        int ndig = 0, decpt = 0;
+        /* Shortest round-trip digits, computed exactly (see the
+         * exact-shortest section above): decompose a = F * 2^E,
+         * take the exact decimal expansions of a and of its
+         * round-trip interval endpoints, and scan prefixes of a's
+         * digits for the first length whose grid neighbour falls
+         * inside the interval. A candidate is guaranteed by
+         * length 17 (the correctly rounded 17-digit decimal always
+         * round-trips, and it is one of the two grid neighbours). */
+        {
+            uint64_t bits, frac, F;
+            int be, E, vlen, vdec, ldec, hdec, n, inclusive;
+            char vd[800], ld[800], hd[800];
+            memcpy(&bits, &a, 8);
+            frac = bits & ((UINT64_C(1) << 52) - 1);
+            be = (int)((bits >> 52) & 0x7FF);
+            if (be == 0) { F = frac; E = -1074; }
+            else { F = frac | (UINT64_C(1) << 52); E = be - 1075; }
+            inclusive = (F % 2 == 0);
+            exact_decimal(F, E, vd, &vdec);
+            vlen = (int)strlen(vd);
+            if (F == (UINT64_C(1) << 52) && be > 1)
+                /* binade boundary: spacing below is half */
+                exact_decimal(4 * F - 1, E - 2, ld, &ldec);
+            else
+                exact_decimal(2 * F - 1, E - 1, ld, &ldec);
+            exact_decimal(2 * F + 1, E - 1, hd, &hdec);
+            for (n = 1; n <= 17 && ndig == 0; ++n) {
+                char dn[24], up[24];
+                int ddec = vdec, udec = vdec, i, cl, ch, dn_ok, up_ok;
+                for (i = 0; i < n; ++i) dn[i] = i < vlen ? vd[i] : '0';
+                dn[n] = '\0';
+                memcpy(up, dn, (size_t)n + 1);
+                for (i = n - 1; i >= 0 && up[i] == '9'; --i) up[i] = '0';
+                if (i < 0) { up[0] = '1'; udec++; } /* 999.. -> 100.. */
+                else up[i]++;
+                cl = cmp_decimal(dn, ddec, ld, ldec);
+                dn_ok = cl > 0 || (cl == 0 && inclusive);
+                ch = cmp_decimal(up, udec, hd, hdec);
+                up_ok = ch < 0 || (ch == 0 && inclusive);
+                if (!dn_ok && !up_ok) continue;
+                if (dn_ok && up_ok) {
+                    /* both neighbours round-trip: take the closer
+                     * one, decided by the exact tail of a past
+                     * digit n (digits past vlen are zero); an exact
+                     * half tail is a tie and goes to the even last
+                     * digit */
+                    char tc = n < vlen ? vd[n] : '0';
+                    int up_closer;
+                    if (tc > '5') up_closer = 1;
+                    else if (tc < '5') up_closer = 0;
+                    else { /* tail starts with 5: past half unless
+                            * the rest is exactly zero (a true tie) */
+                        int tie = 1;
+                        for (i = n + 1; i < vlen; ++i)
+                            if (vd[i] != '0') { tie = 0; break; }
+                        up_closer = tie ? ((dn[n - 1] - '0') % 2 != 0)
+                                        : 1;
                     }
-                    w += snprintf(test + w, sizeof test - (size_t)w,
-                                  "e%+d", cdecpt - 1);
-                    (void)w;
-                    if (strtod(test, NULL) != a) continue;
-                    dist = strtold(test, NULL) - (long double)a;
-                    if (dist < 0) dist = -dist;
-                    if (best < 0 || dist < bestdist ||
-                        (dist == bestdist &&
-                         ((cd[cn - 1] - '0') % 2 == 0) &&
-                         ((digits[ndig - 1] - '0') % 2 != 0))) {
-                        best = ci;
-                        bestdist = dist;
-                        memcpy(digits, cd, (size_t)cn + 1);
-                        ndig = cn; decpt = cdecpt;
+                    if (up_closer) {
+                        memcpy(digits, up, (size_t)n + 1);
+                        decpt = udec;
+                    } else {
+                        memcpy(digits, dn, (size_t)n + 1);
+                        decpt = ddec;
                     }
+                } else if (dn_ok) {
+                    memcpy(digits, dn, (size_t)n + 1);
+                    decpt = ddec;
+                } else {
+                    memcpy(digits, up, (size_t)n + 1);
+                    decpt = udec;
                 }
+                ndig = n;
+                /* same value without the trailing zeros, if any */
+                while (ndig > 1 && digits[ndig - 1] == '0')
+                    digits[--ndig] = '\0';
             }
-            if (best >= 0) {
-                /* strip trailing zeros (same value, shorter form) */
-                while (ndig > 1 && digits[ndig - 1] == '0') digits[--ndig] = '\0';
-                found = 1;
+            if (ndig == 0) { /* unreachable: length 17 always has a
+                              * round-tripping neighbour */
+                char tmp[64];
+                const char *p;
+                int cnt = 0, exp10;
+                snprintf(tmp, sizeof tmp, "%.17e", a);
+                for (p = tmp; *p && *p != 'e' && *p != 'E'; ++p)
+                    if (isdigit((unsigned char)*p)) digits[cnt++] = *p;
+                exp10 = atoi(p + 1);
+                ndig = cnt; decpt = exp10 + 1;
+                while (ndig > 1 && digits[ndig - 1] == '0') ndig--;
+                digits[ndig] = '\0';
             }
-        }
-        if (!found) { /* unreachable for IEEE doubles; be safe */
-            const char *p;
-            int n = 0, exp10;
-            snprintf(tmp, sizeof tmp, "%.17e", a);
-            p = tmp;
-            while (*p && *p != 'e' && *p != 'E') {
-                if (isdigit((unsigned char)*p)) digits[n++] = *p;
-                p++;
-            }
-            exp10 = atoi(p + 1);
-            ndig = n; decpt = exp10 + 1;
-            while (ndig > 1 && digits[ndig - 1] == '0') ndig--;
         }
         {
             sbuf b; sbuf_init(&b);

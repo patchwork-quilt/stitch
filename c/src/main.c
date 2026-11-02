@@ -453,9 +453,21 @@ static int cmd_scenario2(const char *dir)
     STEP(cstitch_delegate(&alice, &la, cellA, "bob", "read", next_ts2()));
     /* 15. contest */
     STEP(cstitch_contest(&alice, &la, cellB, "stale", next_ts2()));
-    /* 16. merger (two timestamps: bind, then the MERGER entry) */
+    /* 16. merger (two timestamps: bind, then the MERGER entry).
+     * The ticks are taken in separate statements on purpose: two
+     * next_ts2() calls in one argument list have unspecified
+     * evaluation order (C99 6.5.2.2), and this compiler evaluated
+     * them right-to-left, stamping the MERGER entry a tick EARLIER
+     * than the BIND whose cell it references. The Python merger()
+     * binds first and appends the MERGER second, so ts_bind must be
+     * the earlier tick. */
     p = parse_lit("{\"sum\":[1,2]}");
-    STEP(cstitch_merger(&alice, &la, &sa, cellA, cellB, "merged", p, next_ts2(), next_ts2(), &tmp));
+    {
+        int64_t ts_bind = next_ts2();
+        int64_t ts_entry = next_ts2();
+        STEP(cstitch_merger(&alice, &la, &sa, cellA, cellB, "merged", p,
+                            ts_bind, ts_entry, &tmp));
+    }
     jv_free(p);
     /* 17. revoke */
     STEP(cstitch_revoke(&alice, &la, cellB, "superseded", next_ts2()));
