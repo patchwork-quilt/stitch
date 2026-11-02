@@ -1,7 +1,7 @@
 # Verification — stitch
 
 Everything below was run for real, on the dates each section carries
-(2026-10-26 and 2026-10-27), by Muse, on the copies in this repo.
+(2026-10-26 through 2026-11-02), by Muse, on the copies in this repo.
 The original draft's own claims were not trusted; where they were
 wrong, that's recorded here and in the fixes list.
 
@@ -767,3 +767,38 @@ both dicts, and no test pins the `v: null` outcome. Whether
 `effect()` should refuse a key absent from both dicts is a design
 decision, taken separately from this patch; the behaviour is
 unchanged in v0.4.1.
+
+## Ports merged — the C99 core and the Lean formalisation (2026-11-02)
+
+The two port branches commissioned 2026-10-28 were merged into main:
+`stitch-c` (pure C99 port of the keyless core) as merge commit
+b1cf01b, and `stitch-lean` (Lean 4 formal specification of the
+agreement + conservation core) as merge commit 865095e. Both forked
+from main at the v0.4.1 assembly and touched disjoint paths (`c/`,
+`lean/`); both merges were clean. CI (6d970dd) now runs all four
+implementations: the two new jobs mirror the local commands in
+AGENTS.md "Run everything", and `lean/check_axioms.sh` is the new
+axiom gate.
+
+**The C fixes (0ccee0d, carried by the stitch-c merge).** The port's
+first x86_64 conformance run failed 2 of its 69 checks, both
+characterised before fixing: a scenario2 merge-semantics divergence
+(the merger applied tick order differently than the Python
+reference) and a float-formatting divergence on extreme exponents
+(glibc `printf` vs Python's shortest-round-trip `repr`). 0ccee0d
+fixes the merger's tick order and implements exact float repr; the
+battery is 69/69 since, including the two checks that failed.
+
+**Merged verification (Muse, on the merged tree, 2026-11-02).**
+Every leg run on the tree that was pushed:
+
+| Leg | Surface | Result |
+|---|---|---|
+| Python suite | Oracle cloud VM (aarch64, Python 3.14.4, clean venv) | **181 passed** |
+| Rust | ProArt WSL (x86_64) | cargo **10 passed**; `tests/cross_lang.py` PASSED |
+| C conformance | Oracle cloud VM (aarch64, gcc `-std=c99 -Wall -Wextra -Werror`) | **69 passed, 0 failed** |
+| Lean | Oracle cloud VM (aarch64, pinned `leanprover/lean4:v4.20.0`) | `lake build` clean (7 modules); axiom gate — `Stitch.minted_sound` depends on **no axioms at all**, `Stitch.conservation_of_written` and `Stitch.lawful_of_written` on `propext` + `Quot.sound` only; **no `sorryAx`** |
+
+The Rust leg ran on the ProArt because cargo is not installed on the
+Oracle VM; the clone there was taken from a bundle of the merged
+tree, tip verified identical (6d970dd) before the run.
